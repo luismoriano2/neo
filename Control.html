@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Control Documentario PNP</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        /* --- ESTILOS GENERALES --- */
+        body {
+            background: linear-gradient(180deg, #000000 0%, #002600 100%);
+            color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; padding: 0; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* --- LOGIN --- */
+        #loginScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #000000 0%, #003300 100%);
+            z-index: 9999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: opacity 0.5s ease;
+        }
+        .login-box {
+            background-color: #fff; padding: 40px; border-radius: 20px;
+            border: 6px solid #002b00; box-shadow: 0 0 50px rgba(0, 255, 65, 0.3);
+            text-align: center; width: 400px; max-width: 90%;
+        }
+        .login-title {
+            color: #000; font-weight: 900; font-size: 1.2em; line-height: 1.4;
+            margin-bottom: 20px; text-transform: uppercase;
+            border-bottom: 4px solid #002b00; padding-bottom: 15px;
+        }
+        .login-field {
+            width: 100%; padding: 15px; margin-bottom: 15px;
+            border: 3px solid #000; border-radius: 10px;
+            font-size: 1em; font-weight: bold; box-sizing: border-box;
+            outline: none; text-align: center; text-transform: uppercase;
+        }
+        .login-field:focus { border-color: #0056b3; background-color: #f0f8ff; }
+        .btn-enter {
+            width: 100%; padding: 15px; background-color: #002b00; color: white;
+            font-weight: 900; font-size: 1.2em; border: 3px solid #00ff41; 
+            border-radius: 10px; cursor: pointer; transition: transform 0.2s; text-transform: uppercase;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+        }
+        .btn-enter:hover { background-color: #004400; transform: scale(1.05); box-shadow: 0 0 20px #00ff41; }
+
+        /* --- ANIMACIÓN --- */
+        #successOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.98); z-index: 10000; display: none;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .success-title { color: #00ff41; font-size: 2.5em; font-weight: 900; animation: pulse 1s infinite; margin-bottom:10px;}
+        .success-user { color: #fff; font-size: 1.8em; font-weight: 700; }
+        .success-rank { color: #e65100; font-size: 1.2em; font-weight: 900; background: #fff; padding: 5px 15px; border-radius: 5px; margin-top: 10px; border: 2px solid #e65100; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); } }
+
+        /* --- TOAST --- */
+        #customAlert {
+            position: fixed; top: 30px; left: 50%; transform: translateX(-50%) translateY(-100px);
+            background: #fff; padding: 20px 40px; border-radius: 15px; border: 4px solid #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 10001; text-align: center; opacity: 0;
+            transition: all 0.5s ease; pointer-events: none;
+        }
+        #customAlert.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .alert-title { font-size: 1.5em; font-weight: 900; display: block; margin-bottom: 5px; }
+        .alert-message { font-size: 1em; font-weight: 700; color: #333; }
+        .alert-success { border-color: #00ff41 !important; } .alert-success .alert-title { color: #002b00; text-shadow: 1px 1px 0 #00ff41; }
+        .alert-update { border-color: #ff9800 !important; } .alert-update .alert-title { color: #e65100; }
+
+        /* --- MAIN UI --- */
+        #mainInterface {
+            display: none; width: 100%; max-width: 1400px;
+            flex-direction: column; align-items: center; padding: 20px 0 50px 0;
+        }
+        .logo-escudo { max-width: 140px; margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3)); }
+        h1 {
+            text-align: center; font-weight: 900; font-size: 2.2em; margin-bottom: 30px; 
+            color: #ffffff; text-transform: uppercase; border-bottom: 5px solid #0056b3;
+            padding-bottom: 15px; width: 100%; text-shadow: 2px 2px 4px #000;
+        }
+
+        .user-bar {
+            width: 100%; background: #fff; padding: 15px; border-radius: 15px; border: 4px solid #000;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+            box-shadow: 5px 5px 0px #000; box-sizing: border-box;
+        }
+        .user-info { font-weight: 900; font-size: 1.1em; text-transform: uppercase; }
+        .rank-tag { background-color: #002b00; color: #00ff41; padding: 5px 10px; border-radius: 5px; margin-left: 10px; border: 2px solid #00ff41; }
+        .btn-logout-main { background: #d32f2f; color: #fff; border: 3px solid #000; padding: 10px 20px; border-radius: 10px; font-weight: 900; cursor: pointer; box-shadow: 3px 3px 0 #000; }
+
+        .backup-container {
+            width: 100%; display: flex; gap: 15px; margin-bottom: 20px; background: #fff; padding: 20px;
+            border-radius: 20px; border: 4px solid #000; align-items: center; justify-content: center;
+            box-shadow: 5px 5px 0px #000; flex-wrap: wrap; box-sizing: border-box;
+        }
+        .btn-tool {
+            color: #fff; padding: 15px; border: 3px solid #000; border-radius: 12px; font-weight: 900;
+            cursor: pointer; min-width: 150px; text-align: center; flex: 1; box-shadow: 4px 4px 0 rgba(0,0,0,0.8);
+        }
+        .btn-tool:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+        .btn-blue { background: #0056b3; } .btn-green { background: #2e7d32; } 
+        .btn-purple { background: #6a1b9a; } .btn-orange { background: #e65100; } .btn-red { background: #d32f2f; }
+        .btn-gray { background: #37474f; }
+
+        .card { width: 100%; background: #f0f2f5; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); padding: 40px; border: 4px solid #000; margin-bottom: 40px; box-sizing: border-box; }
+        .hidden-section { display: none !important; }
+        .form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .full-width { grid-column: 1 / -1; } .span-2 { grid-column: span 2; } .span-1 { grid-column: span 1; }
+        .form-group label { font-weight: 900; margin-bottom: 5px; display: block; }
+        .form-input { width: 100%; padding: 10px; border: 3px solid #000; border-radius: 10px; font-weight: 900; text-transform: uppercase; box-sizing: border-box; }
+        .form-input:focus { border-color: #00ff41; background: #f0fff4; }
+        
+        .form-actions { grid-column: 1/-1; display: flex; gap: 15px; margin-top: 20px; }
+        .btn-save { flex: 2; padding: 18px; background: #002b00; color: #fff; border: 3px solid #00ff41; border-radius: 15px; font-weight: 900; font-size: 1.2em; cursor: pointer; box-shadow: 0 0 15px rgba(0,255,65,0.3); }
+        .btn-clear { flex: 1; padding: 18px; background: #455a64; color: #fff; border: 3px solid #000; border-radius: 15px; font-weight: 900; font-size: 1.2em; cursor: pointer; box-shadow: 3px 3px 0 #000; }
+
+        .filter-bar {
+            width: 100%; background: #e0f2f1; padding: 20px; border-radius: 20px;
+            border: 4px solid #004d40; margin-bottom: 20px; display: flex; gap: 15px;
+            align-items: flex-end; flex-wrap: wrap; box-shadow: 5px 5px 0 #000; box-sizing: border-box;
+        }
+        .filter-group { flex: 1; min-width: 150px; display: flex; flex-direction: column; }
+        .filter-label { font-weight: 900; font-size: 0.8em; margin-bottom: 5px; color: #004d40; }
+        .filter-input { width: 100%; padding: 10px; border: 3px solid #004d40; border-radius: 10px; font-weight: 900; box-sizing: border-box; }
+        .btn-clear-filters { padding: 10px 20px; background: #00796b; color: #fff; border: 3px solid #004d40; border-radius: 10px; font-weight: 900; cursor: pointer; height: 46px; box-shadow: 3px 3px 0 #000; }
+
+        #pendingAlertContainer {
+            width: 100%; background: #fff3e0; border: 4px solid #ff6f00; padding: 20px;
+            border-radius: 20px; margin-bottom: 20px; display: none; align-items: center; justify-content: center;
+            box-shadow: 0 0 20px rgba(255, 111, 0, 0.4); text-align: center; box-sizing: border-box;
+        }
+        .pending-title { color: #d84315; font-weight: 900; font-size: 1.5em; text-decoration: underline; }
+        .pending-text { color: #bf360c; font-weight: 800; font-size: 1.1em; }
+        .pending-count { color: #d32f2f; background: #fff; padding: 2px 8px; border-radius: 5px; border: 2px solid #d32f2f; font-size: 1.3em; }
+
+        .table-container { width: 100%; overflow-x: auto; background: #f0f2f5; border: 4px solid #000; border-radius: 20px; box-shadow: 0 5px 25px rgba(0,0,0,0.4); box-sizing: border-box; }
+        table { width: 100%; min-width: 1200px; border-collapse: separate; border-spacing: 0; }
+        th { background: #000; color: #fff; padding: 15px; font-weight: 900; border-bottom: 3px solid #00ff41; }
+        tr.main-row td { background: #fff; padding: 12px; text-align: center; border-bottom: 2px solid #ccc; vertical-align: middle; font-weight: 800; }
+        tr.sub-row td { background: #f0f2f5; padding: 15px 20px; border-bottom: 2px solid #ccc; }
+        tr.third-row td { background: #f0f2f5; padding: 15px 20px 25px 20px; border-bottom: 5px solid #000; }
+
+        .tracking-grid { display: grid; gap: 10px; align-items: center; justify-content: center; }
+        .grid-6 { grid-template-columns: repeat(6, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        
+        .tracking-item { display: flex; flex-direction: column; background: #f0f2f5; padding: 10px; border: 3px solid #000; border-radius: 12px; align-items: center; text-align: center; }
+        
+        /* ESTADOS DE ALERTA */
+        .tracking-item.alert-state-red { background: #ffcdd2 !important; border-color: #d32f2f !important; animation: pulse-red 2s infinite; }
+        .tracking-item.alert-state-green { background: #ccffcc !important; border-color: #00c853 !important; }
+
+        @keyframes pulse-red { 
+            0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.4); } 
+            70% { box-shadow: 0 0 10px 10px rgba(211, 47, 47, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); } 
+        }
+
+        .tracking-label { color: #002b00; font-weight: 900; font-size: 0.8em; margin-bottom: 6px; width: 100%; text-align: center; }
+        .tracking-input { border: 2px solid #000; background: #ccffcc; color: #000; border-radius: 10px; padding: 5px; font-weight: 900; width: 100%; text-align: center; font-size: 1em; text-transform: uppercase; }
+        .tracking-input:focus { background: #fff; border-color: #0056b3; }
+        select.tracking-input option { background: #ccffcc; color: #000; font-weight: 900; }
+
+        .action-btn { padding: 8px; width: 100%; border: 3px solid #000; border-radius: 8px; font-weight: 900; color: #fff; cursor: pointer; box-shadow: 3px 3px 0 #000; margin-bottom: 4px; }
+        .btn-edit { background: #ff9800; } .btn-delete { background: #f44336; } .btn-view { background: #2196f3; }
+        .days-badge { padding: 8px; border-radius: 10px; border: 3px solid #000; font-weight: 900; display: block; margin-top: 8px; box-shadow: 3px 3px 0 rgba(0,0,0,0.2); }
+        .bg-green { background: #00e676; } .bg-yellow { background: #ffea00; } .bg-red { background: #ff1744; color: #fff; }
+
+        /* PAGINACIÓN Y MODAL */
+        .pagination-container { display: flex; justify-content: center; gap: 20px; margin-top: 20px; align-items: center; }
+        .btn-page { background: #000; color: #fff; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; border: 2px solid #00ff41; }
+        .btn-page:disabled { background: #555; border-color: #555; cursor: not-allowed; }
+        .page-info { font-weight: 900; color: #fff; font-size: 1.1em; background: #000; padding: 10px; border-radius: 10px; }
+
+        .modal { display: none; position: fixed; z-index: 10002; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fff; margin: auto; padding: 30px; border: 5px solid #002b00; width: 80%; max-width: 1000px; border-radius: 20px; max-height: 80vh; overflow-y: auto; }
+        .close-modal { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-modal:hover { color: #000; }
+        #historyTable { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        #historyTable th { background: #002b00; color: #fff; padding: 10px; }
+        #historyTable td { border-bottom: 1px solid #ccc; padding: 8px; font-size: 0.9em; text-align: left; }
+
+        @media (max-width: 1200px) { .grid-6 { grid-template-columns: repeat(3, 1fr); } .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 900px) { .form-grid, .grid-6, .grid-4 { grid-template-columns: 1fr; } .span-3 { grid-column: span 1; } .full-width, .span-2, .span-1 { grid-column: span 1; } .backup-container, .filter-bar, .form-actions { flex-direction: column; } .btn-tool, .btn-clear, .btn-save { width: 100%; } }
+    </style>
+</head>
+<body>
+
+    <div id="successOverlay"><div class="success-title">ACCESO CONCEDIDO</div><div id="animUser" class="success-user"></div><div id="animRank" class="success-rank"></div></div>
+    <div id="customAlert"><span class="alert-title"></span><span class="alert-message"></span></div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="document.getElementById('historyModal').style.display='none'">&times;</span>
+            <h2 style="text-align:center; color:#002b00; font-weight:900;">HISTORIAL DE CAMBIOS Y ACCIONES</h2>
+            <table id="historyTable"><thead><tr><th>FECHA</th><th>USUARIO</th><th>ACCIÓN</th><th>DETALLE</th></tr></thead><tbody id="historyBody"></tbody></table>
+        </div>
+    </div>
+
+    <div id="loginScreen">
+        <div class="login-box">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c3/Escudo_de_la_Polic%C3%ADa_Nacional_del_Per%C3%BA.png" onerror="this.src='escudo.png';this.onerror=null;" alt="Escudo" style="width:100px;margin-bottom:20px;">
+            <div class="login-title">SISTEMA DE ENTREGA, CONTROL Y SEGUIMIENTO DOCUMENTARIO ASUNTOS JUDICIALES</div>
+            <input type="text" id="txtUsuario" class="login-field" placeholder="USUARIO" autofocus>
+            <input type="password" id="txtPassword" class="login-field" placeholder="CONTRASEÑA">
+            <button class="btn-enter" onclick="iniciarSesion()">INGRESAR AL SISTEMA</button>
+        </div>
+    </div>
+
+    <div id="mainInterface">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c3/Escudo_de_la_Polic%C3%ADa_Nacional_del_Per%C3%BA.png" onerror="this.src='escudo.png';this.onerror=null;" class="logo-escudo">
+        <h1>SISTEMA DE VALIDACION ENTREGA DE DOCUMENTOS</h1>
+
+        <div class="user-bar">
+            <div class="user-info">USUARIO ACTIVO: <span id="labelUserName">...</span> <span id="labelUserRank" class="rank-tag">...</span></div>
+            <button class="btn-logout-main" onclick="location.reload()">CERRAR SESIÓN</button>
+        </div>
+        
+        <div id="toolsSection" class="backup-container">
+            <div style="width:100%;text-align:center;margin-bottom:10px;"><label style="font-size:1.1em;font-weight:900;text-decoration:underline;">CENTRO DE GESTIÓN:</label></div>
+            <button class="btn-tool btn-blue" onclick="descargarRespaldo()">💾 GUARDAR TODO</button>
+            <button class="btn-tool btn-red" onclick="exportarPDF()">📄 REPORTE PDF</button>
+            
+            <button id="btnHistory" class="btn-tool btn-gray hidden-section" onclick="verHistorial()">📜 VER HISTORIAL</button>
+            <button id="btnTemplate" class="btn-tool btn-purple hidden-section" onclick="generarPlantillaExcel()">🗂️ BAJAR PLANTILLA</button>
+            <button id="btnExcel" class="btn-tool btn-green hidden-section" onclick="document.getElementById('inputFileExcel').click()">⬆️ CARGA MASIVA</button>
+            <input type="file" id="inputFileExcel" accept=".xlsx,.xls" onchange="cargarMasivoExcel(this)" style="display:none;">
+            <button id="btnRestore" class="btn-tool btn-orange hidden-section" onclick="document.getElementById('inputFileRestaurar').click()">📂 RESTAURAR</button>
+            <input type="file" id="inputFileRestaurar" accept=".json" onchange="cargarRespaldo(this)" style="display:none;">
+        </div>
+
+        <div class="card hidden-section" id="registroCard">
+            <h3 style="text-align:center;border-bottom:4px solid #000;padding-bottom:15px;margin-top:0;font-weight:900;">NUEVO REGISTRO</h3>
+            <form id="dataForm" class="form-grid">
+                <div class="form-group full-width"><label>Operador</label><select id="operador" class="form-input" required onchange="aplicarFiltros()"><option>TODOS LOS OPERADORES</option><option>PAOLA SANCHEZ</option><option>MARICRUZ ORE</option><option>FELIPE HERMOZA</option><option>JUAN FLORES NIETO</option><option>JHANASELL VEGA</option><option>YANINE ORTEGA</option><option>OPERADOR 1</option><option>OPERADOR 2</option><option>OPERADOR 3</option><option>OPERADOR 4</option></select></div>
+                <div class="form-group span-1"><label>Fecha</label><input type="text" id="fecha" class="form-input" readonly></div>
+                <div class="form-group span-2"><label>Tipo Doc</label><select id="tipo_documento" class="form-input"><option>OFICIO</option><option>CARTA</option><option>ESCRITO</option><option>EXPEDIENTE ADMINISTRATIVO</option><option>RESOLUCION</option><option>NOTIFICACION</option><option>MEMORANDUM</option><option>INFORME</option><option>OTRO</option></select></div>
+                <div class="form-group span-1"><label>N° Doc</label><input type="text" id="num_documento" class="form-input"></div>
+                <div class="form-group"><label>Ruta</label><select id="ruta" class="form-input"><option>SGD</option><option>HT</option><option>STDX</option></select></div>
+                <div class="form-group"><label>N° Ruta</label><input type="text" id="num_ruta" class="form-input"></div>
+                <div class="form-group"><label>Folios</label><input type="number" id="folios" class="form-input"></div>
+                <div class="form-group"><label>Expediente</label><input type="text" id="expediente" class="form-input"></div>
+                <div class="form-group span-2"><label>Administrado</label><input type="text" id="administrado" class="form-input"></div>
+                <div class="form-group span-2"><label>Materia</label><input type="text" id="materia" class="form-input" placeholder="ASUNTO..."></div>
+                <div class="form-group full-width"><label>Link Archivo Digital (Drive/OneDrive)</label><input type="text" id="link_archivo" class="form-input" placeholder="Pegar enlace aquí..."></div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">REGISTRAR</button>
+                    <button type="button" class="btn-clear" onclick="limpiarForm()">NUEVO / LIMPIAR</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="filter-bar">
+            <div class="filter-group"><label class="filter-label">🔍 ADMINISTRADO:</label><input type="text" id="filtroAdmin" class="filter-input" onkeyup="aplicarFiltros(true)"></div>
+            <div class="filter-group"><label class="filter-label">📂 EXPEDIENTE:</label><input type="text" id="filtroExp" class="filter-input" onkeyup="aplicarFiltros(true)"></div>
+            <div class="filter-group"><label class="filter-label">📄 HT / RUTA:</label><input type="text" id="filtroRuta" class="filter-input" onkeyup="aplicarFiltros(true)"></div>
+            <div class="filter-group"><label class="filter-label">📅 FECHA:</label><input type="text" id="filtroFecha" class="filter-input" placeholder="DD/MM/AAAA" onkeyup="aplicarFiltros(true)"></div>
+            <button class="btn-clear-filters" onclick="limpiarFiltros()">LIMPIAR</button>
+        </div>
+
+        <div id="pendingAlertContainer">
+            <div class="pending-content"><div class="pending-title">⚠️ SEGUIMIENTO DE PENDIENTES</div><div class="pending-text" id="pendingText"></div></div>
+        </div>
+
+        <div class="table-container">
+            <table id="tablaRegistros">
+                <thead><tr><th>FECHA</th><th>OPERADOR</th><th>DOCUMENTO</th><th>RUTA</th><th>EXPEDIENTE</th><th>ADMINISTRADO</th><th>DIGITAL</th><th>OK</th><th>RECIBIDO</th><th>ACCIONES</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="pagination-container">
+            <button class="btn-page" onclick="cambiarPagina(-1)">ANTERIOR</button>
+            <span id="pageInfo" class="page-info">PÁGINA 1</span>
+            <button class="btn-page" onclick="cambiarPagina(1)">SIGUIENTE</button>
+        </div>
+    </div>
+
+    <script>
+        const DB_KEY = 'sistema_documentos_db_v1';
+        const LOG_KEY = 'sistema_documentos_logs';
+        let registros = [];
+        let logs = [];
+        let currentPage = 1;
+        const rowsPerPage = 10;
+        let registrosFiltrados = [];
+        
+        const USUARIOS = {
+            "ALEJANDRO AYONA CUBAS":{p:"301va03646",r:"ADMIN",g:"ADMINISTRADOR"},
+            "YANINE ORTEGA":{p:"YANINE47553582",r:"YANINE",g:"OPERADOR"},
+            "MARICRUZ ORE":{p:"maricruz1234",r:"MARICRUZ",g:"OPERADOR"},
+            "PAOLA SANCHEZ":{p:"PAOLA70121119",r:"PAOLA",g:"OPERADOR"}
+        };
+        const OPERADORES_VALIDOS = ["PAOLA SANCHEZ", "MARICRUZ ORE", "FELIPE HERMOZA", "JUAN FLORES NIETO", "JHANASELL VEGA", "YANINE ORTEGA", "OPERADOR 1", "OPERADOR 2", "OPERADOR 3", "OPERADOR 4"];
+        let ROL_ACTUAL = "GUEST"; let NOMBRE_USUARIO_ACTUAL = "";
+
+        function registrarLog(accion, detalle) {
+            const nuevoLog = { fecha: new Date().toLocaleString(), usuario: NOMBRE_USUARIO_ACTUAL, accion: accion, detalle: detalle };
+            logs.unshift(nuevoLog);
+            localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+        }
+
+        function verHistorial() {
+            const modal = document.getElementById('historyModal');
+            const tbody = document.getElementById('historyBody');
+            tbody.innerHTML = '';
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${log.fecha}</td><td><strong>${log.usuario}</strong></td><td>${log.accion}</td><td>${log.detalle}</td>`;
+                tbody.appendChild(tr);
+            });
+            modal.style.display = 'flex';
+        }
+
+        function mostrarAlerta(t, m, tp) {
+            const a = document.getElementById('customAlert');
+            a.querySelector('.alert-title').textContent = t; a.querySelector('.alert-message').textContent = m;
+            a.className = ''; if(tp==='success') a.classList.add('alert-success'); else a.classList.add('alert-update');
+            a.classList.add('show'); setTimeout(()=>a.classList.remove('show'), 3000);
+        }
+
+        function iniciarSesion() {
+            const u = document.getElementById('txtUsuario').value.toUpperCase().trim();
+            const p = document.getElementById('txtPassword').value.trim();
+            if(USUARIOS[u] && USUARIOS[u].p===p) {
+                ROL_ACTUAL = USUARIOS[u].r; NOMBRE_USUARIO_ACTUAL = u;
+                const ov = document.getElementById('successOverlay');
+                document.getElementById('animUser').innerText = u; document.getElementById('animRank').innerText = USUARIOS[u].g;
+                ov.style.display = 'flex';
+                setTimeout(()=>{
+                    ov.style.display='none'; document.getElementById('loginScreen').style.display='none';
+                    document.getElementById('mainInterface').style.display='flex';
+                    document.getElementById('labelUserName').innerText=u; document.getElementById('labelUserRank').innerText=USUARIOS[u].g;
+                    if(ROL_ACTUAL==='ADMIN') {
+                        document.getElementById('registroCard').classList.remove('hidden-section');
+                        document.querySelectorAll('.hidden-section').forEach(e=>e.classList.remove('hidden-section'));
+                    }
+                    aplicarFiltros();
+                }, 2000);
+            } else alert("INCORRECTO");
+        }
+        document.getElementById("txtPassword").addEventListener("keypress", e=>{if(e.key==="Enter")iniciarSesion()});
+        function cerrarSesion(){location.reload()}
+
+        function obtenerSoloFecha(){return new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'})}
+        function parsearFecha(f){if(!f)return new Date();const p=f.split('/');return new Date(p[2],p[1]-1,p[0])}
+        function calcularDias(fI,fF){return Math.floor((fF-parsearFecha(fI))/(1000*60*60*24))||0}
+
+        document.addEventListener('DOMContentLoaded', ()=>{
+            document.getElementById('fecha').value = obtenerSoloFecha();
+            const d = localStorage.getItem(DB_KEY); if(d) registros = JSON.parse(d);
+            const l = localStorage.getItem(LOG_KEY); if(l) logs = JSON.parse(l);
+            document.body.addEventListener('input', e=>{if(e.target.tagName==='INPUT' && e.target.type==='text' && e.target.id!=='txtPassword' && e.target.id!=='link_archivo') e.target.value=e.target.value.toUpperCase()});
+        });
+
+        function guardarDatos(){localStorage.setItem(DB_KEY, JSON.stringify(registros))}
+
+        function verificarPendientes() {
+            if(ROL_ACTUAL === 'GUEST') return;
+            let list = registros.filter(r=>r.operador===NOMBRE_USUARIO_ACTUAL && (r.observacion_estado==='ARCHIVADO TEMPORALMENTE'||r.observacion_estado==='PENDIENTE DE REMITIR'));
+            const c = document.getElementById('pendingAlertContainer');
+            if(list.length>0) {
+                let max=0; list.forEach(r=>{let d=calcularDias(r.fecha,new Date()); if(d>max) max=d;});
+                document.getElementById('pendingText').innerHTML = `ESTIMADA/O <b>${NOMBRE_USUARIO_ACTUAL}</b>, UD. TIENE <span class="pending-count">${list.length}</span> PENDIENTES.<br>ANTIGÜEDAD MÁXIMA: <span class="pending-count">${max}</span> DÍAS.`;
+                c.style.display='flex';
+            } else c.style.display='none';
+        }
+
+        function aplicarFiltros(resetPage = false) {
+            if(resetPage) currentPage = 1;
+            const fA=document.getElementById('filtroAdmin').value.toUpperCase();
+            const fE=document.getElementById('filtroExp').value.toUpperCase();
+            const fR=document.getElementById('filtroRuta').value.toUpperCase();
+            const fF=document.getElementById('filtroFecha').value;
+            let l=registros;
+            if(ROL_ACTUAL!=='ADMIN') {
+                if(ROL_ACTUAL==='YANINE') l=registros.filter(r=>r.operador==='YANINE ORTEGA');
+                else if(ROL_ACTUAL==='MARICRUZ') l=registros.filter(r=>r.operador==='MARICRUZ ORE');
+                else if(ROL_ACTUAL==='PAOLA') l=registros.filter(r=>r.operador==='PAOLA SANCHEZ');
+            } else {
+                const op=document.getElementById('operador').value;
+                if(!op.includes('TODOS')) l=registros.filter(r=>r.operador===op);
+            }
+            registrosFiltrados = l.filter(r=>r.administrado.includes(fA)&&r.expediente.includes(fE)&&(r.num_ruta.includes(fR)||r.ruta.includes(fR))&&r.fecha.includes(fF));
+            renderizarTabla(); verificarPendientes();
+        }
+
+        function cambiarPagina(delta) {
+            const maxPage = Math.ceil(registrosFiltrados.length / rowsPerPage) || 1;
+            currentPage += delta;
+            if(currentPage < 1) currentPage = 1;
+            if(currentPage > maxPage) currentPage = maxPage;
+            renderizarTabla();
+        }
+
+        function limpiarFiltros(){document.querySelectorAll('.filter-input').forEach(i=>i.value=''); aplicarFiltros(true);}
+        function limpiarForm(){const op=document.getElementById('operador').value; const f=document.getElementById('fecha').value; document.getElementById('dataForm').reset(); document.getElementById('operador').value=op; document.getElementById('fecha').value=f;}
+
+        document.getElementById('dataForm').addEventListener('submit', e=>{
+            e.preventDefault();
+            if(document.getElementById('operador').value.includes('TODOS')) return alert("Elija Operador");
+            const reg = {
+                id: Date.now(),
+                operador: document.getElementById('operador').value,
+                fecha: document.getElementById('fecha').value,
+                tipo_documento: document.getElementById('tipo_documento').value,
+                num_documento: document.getElementById('num_documento').value,
+                ruta: document.getElementById('ruta').value,
+                num_ruta: document.getElementById('num_ruta').value,
+                folios: document.getElementById('folios').value,
+                expediente: document.getElementById('expediente').value,
+                administrado: document.getElementById('administrado').value,
+                materia: document.getElementById('materia').value,
+                link: document.getElementById('link_archivo').value,
+                pase:'', oficio1:'', oficio2:'', oficio3:'', status:'ASIGNADO',
+                dictamen:'', resolucion:'', observacion_detalle:'', observacion_estado:'',
+                recibido_check: false, recibido_fecha: ''
+            };
+            registros.unshift(reg);
+            guardarDatos(); registrarLog('CREACIÓN', `Nuevo: ${reg.administrado} (Exp: ${reg.expediente})`);
+            aplicarFiltros(true); mostrarAlerta("REGISTRO EXITOSO", "GUARDADO", "success");
+            limpiarForm();
+        });
+
+        function renderizarTabla() {
+            const tb = document.querySelector('#tablaRegistros tbody'); tb.innerHTML='';
+            if(ROL_ACTUAL==='GUEST') return;
+
+            const total = registrosFiltrados.length;
+            const maxPage = Math.ceil(total / rowsPerPage) || 1;
+            if(currentPage > maxPage) currentPage = maxPage;
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginaActual = registrosFiltrados.slice(start, end);
+
+            document.getElementById('pageInfo').innerText = `PÁGINA ${currentPage} DE ${maxPage} (Total: ${total})`;
+
+            paginaActual.forEach(r => {
+                let end = new Date();
+                if(r.status==='FINALIZADO' && r.fecha_fin_tramite) end = new Date(r.fecha_fin_tramite);
+                const dias = calcularDias(r.fecha, end);
+                let cls = dias>45?'bg-red':(dias>30?'bg-yellow':'bg-green');
+                let txt = dias>45?'CRÍTICO':(dias>30?'ALERTA':'EN PLAZO');
+                if(r.status==='FINALIZADO') { cls='bg-green'; txt='FINALIZADO'; }
+                
+                let obsClass = "";
+                if(r.observacion_estado==="ARCHIVADO TEMPORALMENTE"||r.observacion_estado==="PENDIENTE DE REMITIR") obsClass="alert-state-red";
+                if(r.observacion_estado==="FINALIZADO") obsClass="alert-state-green";
+
+                let btns = ROL_ACTUAL==='ADMIN' ? `<div class="action-stack"><button class="action-btn btn-edit" onclick="editar(${r.id})">Edit</button><button class="action-btn btn-delete" onclick="eliminar(${r.id})">X</button></div>` : `<span style="font-size:0.7em">LECTURA</span>`;
+                let btnLink = r.link ? `<button class="action-btn btn-view" onclick="window.open('${r.link}', '_blank')">VER PDF</button>` : '<span style="color:#aaa;">---</span>';
+
+                const tr1 = document.createElement('tr'); tr1.className='main-row';
+                tr1.innerHTML=`<td>${r.fecha}</td><td><small>${r.operador}</small></td><td>${r.tipo_documento}<br>${r.num_documento}</td><td>${r.ruta}<br>${r.num_ruta}</td><td><strong>${r.expediente}</strong></td><td style="text-align:left">${r.administrado}</td><td>${btnLink}</td><td><input type="checkbox" ${r.recibido_check?'checked':''} onchange="upd(${r.id},'check',this)"></td><td>${r.recibido_fecha}</td><td>${btns}</td>`;
+                
+                const tr2 = document.createElement('tr'); tr2.className='sub-row';
+                tr2.innerHTML=`<td colspan="12"><div class="tracking-grid grid-6"><div class="tracking-item"><span class="tracking-label">MATERIA</span><input class="tracking-input" value="${r.materia||''}" onchange="upd(${r.id},'materia',this)"></div><div class="tracking-item"><span class="tracking-label">PASE</span><input class="tracking-input" value="${r.pase}" onchange="upd(${r.id},'pase',this)"></div><div class="tracking-item"><span class="tracking-label">OF 1</span><input class="tracking-input" value="${r.oficio1}" onchange="upd(${r.id},'oficio1',this)"></div><div class="tracking-item"><span class="tracking-label">OF 2</span><input class="tracking-input" value="${r.oficio2}" onchange="upd(${r.id},'oficio2',this)"></div><div class="tracking-item"><span class="tracking-label">OF 3</span><input class="tracking-input" value="${r.oficio3}" onchange="upd(${r.id},'oficio3',this)"></div><div class="tracking-item"><span class="tracking-label">STATUS</span><select class="tracking-input" onchange="upd(${r.id},'status',this)"><option value="ASIGNADO" ${r.status==='ASIGNADO'?'selected':''}>ASIGNADO</option><option value="EN TRAMITE" ${r.status==='EN TRAMITE'?'selected':''}>EN TRÁMITE</option><option value="ATENDIDO" ${r.status==='ATENDIDO'?'selected':''}>ATENDIDO</option><option value="FINALIZADO" ${r.status==='FINALIZADO'?'selected':''}>FINALIZADO</option></select></div></div></td>`;
+
+                const tr3 = document.createElement('tr'); tr3.className='third-row';
+                tr3.innerHTML=`<td colspan="12"><div class="tracking-grid grid-6"><div class="tracking-item"><span class="tracking-label">DICTAMEN</span><input class="tracking-input" value="${r.dictamen}" onchange="upd(${r.id},'dictamen',this)"></div><div class="tracking-item"><span class="tracking-label">RESOLUCIÓN</span><input class="tracking-input" value="${r.resolucion}" onchange="upd(${r.id},'resolucion',this)"></div><div class="tracking-item"><span class="tracking-label">OBSERVACIÓN</span><input class="tracking-input" value="${r.observacion_detalle}" onchange="upd(${r.id},'observacion_detalle',this)"></div><div class="tracking-item span-3 ${obsClass}"><span class="tracking-label">ESTADO OBS</span><select class="tracking-input" onchange="upd(${r.id},'observacion_estado',this)"><option value="">--</option><option value="ARCHIVADO TEMPORALMENTE" ${r.observacion_estado==='ARCHIVADO TEMPORALMENTE'?'selected':''}>ARCHIVADO TEMP.</option><option value="PENDIENTE DE REMITIR" ${r.observacion_estado==='PENDIENTE DE REMITIR'?'selected':''}>PENDIENTE</option><option value="FINALIZADO" ${r.observacion_estado==='FINALIZADO'?'selected':''}>FINALIZADO</option></select><span class="days-badge ${cls}">${dias} DÍAS - ${txt}</span></div></div></td>`;
+
+                tb.append(tr1, tr2, tr3);
+            });
+        }
+
+        function upd(id, f, el) {
+            const i = registros.findIndex(r => r.id === id);
+            if(i !== -1) {
+                let newVal = (f === 'check') ? el.checked : el.value.toUpperCase();
+                
+                if(f === 'check') {
+                    registros[i].recibido_check = el.checked;
+                    registros[i].recibido_fecha = el.checked ? new Date().toLocaleString() : '';
+                    aplicarFiltros(); mostrarAlerta("RECIBIDO", "CONFIRMADO", "update");
+                    registrarLog('ACTUALIZACIÓN', `Recepción marcada: ${el.checked} (Exp: ${registros[i].expediente})`);
+                } else if(f === 'status') {
+                    registros[i].status = el.value;
+                    registros[i].fecha_fin_tramite = el.value === 'FINALIZADO' ? new Date().toISOString() : null;
+                    aplicarFiltros(); mostrarAlerta("ESTADO", "ACTUALIZADO", "update");
+                    registrarLog('ESTADO', `Cambio a ${el.value} (Exp: ${registros[i].expediente})`);
+                } else {
+                    if(f==='materia') registros[i].materia = newVal;
+                    else if(f==='pase') registros[i].pase = newVal;
+                    else if(f==='oficio1') registros[i].oficio1 = newVal;
+                    else if(f==='oficio2') registros[i].oficio2 = newVal;
+                    else if(f==='oficio3') registros[i].oficio3 = newVal;
+                    else if(f==='dictamen') registros[i].dictamen = newVal;
+                    else if(f==='resolucion') registros[i].resolucion = newVal;
+                    else if(f==='observacion_detalle') registros[i].observacion_detalle = newVal;
+                    else if(f==='observacion_estado') registros[i].observacion_estado = newVal;
+                    mostrarAlerta("CAMBIO GUARDADO", "INFORMACIÓN ACTUALIZADA", "update");
+                    registrarLog('EDICIÓN', `Campo ${f} modificado`);
+                }
+                guardarDatos();
+                // Si cambiamos el estado de observación, recargamos la tabla para aplicar el color
+                if(f === 'observacion_estado') {
+                    verificarPendientes();
+                    aplicarFiltros(); 
+                }
+            }
+        }
+
+        function eliminar(id) { 
+            const reg = registros.find(r=>r.id===id);
+            if(confirm("Eliminar?")) { 
+                registros = registros.filter(r=>r.id!==id); 
+                guardarDatos(); 
+                registrarLog('ELIMINACIÓN', `Registro eliminado (Exp: ${reg.expediente})`);
+                aplicarFiltros(); 
+            }
+        }
+        
+        function editar(id) {
+            const r = registros.find(r=>r.id===id);
+            document.getElementById('operador').value = r.operador;
+            document.getElementById('fecha').value = r.fecha;
+            document.getElementById('tipo_documento').value = r.tipo_documento;
+            document.getElementById('num_documento').value = r.num_documento;
+            document.getElementById('ruta').value = r.ruta;
+            document.getElementById('num_ruta').value = r.num_ruta;
+            document.getElementById('folios').value = r.folios;
+            document.getElementById('expediente').value = r.expediente;
+            document.getElementById('administrado').value = r.administrado;
+            document.getElementById('materia').value = r.materia||'';
+            document.getElementById('link_archivo').value = r.link||'';
+            if(confirm("Se cargará para editar. ¿Continuar?")) {
+               registrarLog('EDICIÓN', `Carga para edición (Exp: ${r.expediente})`);
+               eliminar(id); window.scrollTo({top:0, behavior:'smooth'});
+            }
+        }
+
+        function generarPlantillaExcel() {
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([['OPERADOR','TIPO DOCUMENTO','N° DOCUMENTO','RUTA','N° RUTA','FOLIOS','EXPEDIENTE','ADMINISTRADO','MATERIA']]);
+            XLSX.utils.book_append_sheet(wb, ws, "Plantilla"); XLSX.writeFile(wb, "Plantilla_Carga.xlsx");
+        }
+
+        function cargarMasivoExcel(input) {
+            const f = input.files[0]; if(!f) return;
+            const r = new FileReader();
+            r.onload = e => {
+                try {
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, range:1, defval:"" });
+                    const validos = rows.filter(r => r.length>0 && r.some(c=>c!==""));
+                    if(validos.length>30) { alert("Máx 30 registros"); return; }
+                    const nuevos = [], hoy = obtenerSoloFecha();
+                    validos.forEach((row, i) => {
+                        const op = (row[0]||"").toString().toUpperCase().trim();
+                        if(!op || !["PAOLA SANCHEZ", "MARICRUZ ORE", "FELIPE HERMOZA", "JUAN FLORES NIETO", "JHANASELL VEGA", "YANINE ORTEGA", "OPERADOR 1", "OPERADOR 2", "OPERADOR 3", "OPERADOR 4"].includes(op)) return;
+                        nuevos.push({
+                            id: Date.now()+i+Math.random(), operador: op, fecha: hoy,
+                            tipo_documento: (row[1]||"").toString().toUpperCase().trim(),
+                            num_documento: (row[2]||"").toString().toUpperCase().trim(),
+                            ruta: (row[3]||"").toString().toUpperCase().trim(),
+                            num_ruta: (row[4]||"").toString().toUpperCase().trim(),
+                            folios: parseInt(row[5]) || 1,
+                            expediente: (row[6]||"").toString().toUpperCase().trim(),
+                            administrado: (row[7]||"").toString().toUpperCase().trim(),
+                            materia: (row[8]||"").toString().toUpperCase().trim(),
+                            pase:'', oficio1:'', oficio2:'', oficio3:'', status:'ASIGNADO', 
+                            dictamen:'', resolucion:'', observacion_detalle:'', observacion_estado:'',
+                            recibido_check: false, recibido_fecha: ''
+                        });
+                    });
+                    if(nuevos.length>0) { 
+                        registros = nuevos.concat(registros); guardarDatos(); aplicarFiltros(true); 
+                        registrarLog('CARGA MASIVA', `Se importaron ${nuevos.length} registros`);
+                        mostrarAlerta("CARGA MASIVA", `${nuevos.length} REGISTROS`, "success"); 
+                    }
+                } catch(e) { alert("Error Excel"); }
+                input.value='';
+            };
+            r.readAsArrayBuffer(f);
+        }
+
+        function descargarRespaldo() {
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(registros)],{type:'application/json'}));
+            a.download = `backup_${new Date().toISOString().slice(0,10)}.json`; a.click();
+        }
+        function cargarRespaldo(input) {
+            const f = input.files[0]; if(!f) return;
+            const r = new FileReader();
+            r.onload = e => { if(confirm("Restaurar?")) { registros=JSON.parse(e.target.result); guardarDatos(); aplicarFiltros(true); registrarLog('RESTAURACIÓN', 'Base de datos restaurada'); mostrarAlerta("RESTAURADO","OK","success"); } i.value=''; };
+            r.readAsText(i.files[0]);
+        }
+        
+        function exportarPDF(){
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape');
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.setTextColor(0, 0, 0);
+            
+            const text = "REPORTE DE STATUS DOCUMENTARIO";
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const textWidth = doc.getTextWidth(text);
+            const x = (pageWidth - textWidth) / 2;
+            
+            doc.text(text, x, 20);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 28);
+
+            let vis = registrosFiltrados; 
+            const rows = vis.map(r=>[r.fecha,r.operador,`${r.tipo_documento}\n${r.num_documento}`,r.ruta,r.num_ruta,r.expediente,r.administrado,r.recibido_check?'SÍ':'NO']);
+            doc.autoTable({
+                startY: 35, 
+                head:[['Fecha','Operador','Documento','Tipo Ruta','N° Hoja Ruta','Expediente','Administrado','Rec']], 
+                body:rows, 
+                theme:'grid', 
+                headStyles:{fillColor:[0,43,0]}
+            });
+            doc.save('reporte_status.pdf');
+        }
+    </script>
+</body>
+</html>
