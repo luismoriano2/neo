@@ -1,9 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- CONFIGURACIÓN DE URL ---
-    // Esto permite que funcione tanto en tu PC como en Render automáticamente
-   // En app.js cambia la constante a:
-    const PYTHON_SERVER_URL = window.location.origin + '/api'; // SIN barra al final
+    // window.location.origin detecta automáticamente si estás en local o en Render
+    const PYTHON_SERVER_URL = window.location.origin + '/api'; 
     
     // Variables de estado
     let itemsCarrito = []; 
@@ -15,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function cargarDatosIniciales() {
         await cargarMesas();
         await cargarCategorias();
-        await cargarArticulos(); // Carga todos al inicio
+        await window.cargarArticulos(); // Carga todos al inicio
         await cargarHistorial();
         if(typeof cargarEstadisticas === 'function') cargarEstadisticas();
     }
@@ -23,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function cargarMesas() {
         try {
             const res = await fetch(`${PYTHON_SERVER_URL}/proveedores`);
+            if (!res.ok) throw new Error("Error en servidor");
             const mesas = await res.json();
             const contenedor = document.getElementById('lista-mesas-botones');
             const selectFiltro = document.getElementById('filtroMesa');
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
             `).join('');
             
-            contenedor.innerHTML = html;
+            if(contenedor) contenedor.innerHTML = html;
             if(selectFiltro) {
                 selectFiltro.innerHTML = '<option value="">Todas las Mesas</option>' + 
                 mesas.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
@@ -48,8 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const contenedor = document.getElementById('lista-categorias-botones');
             const selectArticulo = document.getElementById('articuloCategoria');
 
-            contenedor.innerHTML = `<button class="btn btn-outline-danger active" onclick="filtrarPorCategoria(null)">Todos</button>` + 
+            if(contenedor) {
+                contenedor.innerHTML = `<button class="btn btn-outline-danger active" onclick="filtrarPorCategoria(null)">Todos</button>` + 
                 cats.map(c => `<button class="btn btn-outline-danger" onclick="filtrarPorCategoria(${c.id})">${c.nombre}</button>`).join('');
+            }
             
             if(selectArticulo) {
                 selectArticulo.innerHTML = cats.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
@@ -62,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`${PYTHON_SERVER_URL}/articulos`);
             articulosDisponibles = await res.json();
             renderizarArticulos(articulosDisponibles);
-            renderizarInventario();
+            if(typeof renderizarInventario === 'function') renderizarInventario();
         } catch (e) { console.error("Error artículos:", e); }
     };
 
@@ -73,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderizarArticulos(lista) {
         const contenedor = document.getElementById('lista-articulos');
+        if(!contenedor) return;
         contenedor.innerHTML = lista.map(art => `
             <div class="col-md-4 mb-3">
                 <div class="card h-100 shadow-sm item-articulo" onclick="agregarAlCarrito(${art.id})" style="cursor:pointer">
@@ -89,9 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.seleccionarMesa = (id, nombre) => {
         mesaSeleccionadaId = id;
-        document.getElementById('mesa-seleccionada-nombre').innerText = nombre;
+        const nombreDisplay = document.getElementById('mesa-seleccionada-nombre');
+        if(nombreDisplay) nombreDisplay.innerText = nombre;
+        
         document.querySelectorAll('.btn-mesa').forEach(b => b.classList.remove('active', 'bg-danger', 'text-white'));
-        document.getElementById(`btn-mesa-${id}`).classList.add('active', 'bg-danger', 'text-white');
+        const btnActivo = document.getElementById(`btn-mesa-${id}`);
+        if(btnActivo) btnActivo.classList.add('active', 'bg-danger', 'text-white');
         validarBotonGuardar();
     };
 
@@ -111,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function actualizarCarritoUI() {
         const contenedor = document.getElementById('items-del-pedido');
-        const vacioText = document.getElementById('texto-carrito-vacio');
+        if(!contenedor) return;
         
         if(itemsCarrito.length === 0) {
             contenedor.innerHTML = '<p class="text-muted text-center" id="texto-carrito-vacio">El carrito está vacío.</p>';
@@ -132,47 +138,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const total = itemsCarrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0);
-        document.getElementById('total-acumulado').innerText = `S/ ${total.toFixed(2)}`;
-        document.getElementById('contador-items').innerText = itemsCarrito.length;
+        const displayTotal = document.getElementById('total-acumulado');
+        const displayContador = document.getElementById('contador-items');
+        
+        if(displayTotal) displayTotal.innerText = `S/ ${total.toFixed(2)}`;
+        if(displayContador) displayContador.innerText = itemsCarrito.length;
         validarBotonGuardar();
     }
 
     function validarBotonGuardar() {
         const btn = document.getElementById('btnGuardarPedido');
-        btn.disabled = !(mesaSeleccionadaId && itemsCarrito.length > 0);
+        if(btn) btn.disabled = !(mesaSeleccionadaId && itemsCarrito.length > 0);
     }
 
     // --- 3. GUARDAR Y ELIMINAR PEDIDOS ---
 
-    document.getElementById('btnGuardarPedido').addEventListener('click', async () => {
-        const pedido = {
-            mesa_id: mesaSeleccionadaId,
-            items: itemsCarrito,
-            total: itemsCarrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0)
-        };
+    const btnGuardar = document.getElementById('btnGuardarPedido');
+    if(btnGuardar) {
+        btnGuardar.addEventListener('click', async () => {
+            const pedido = {
+                mesa_id: mesaSeleccionadaId,
+                items: itemsCarrito,
+                total: itemsCarrito.reduce((acc, i) => acc + (i.precio * i.cantidad), 0)
+            };
 
-        try {
-            const res = await fetch(`${PYTHON_SERVER_URL}/pedidos`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(pedido)
-            });
-            if(res.ok) {
-                alert("✅ Pedido guardado!");
-                itemsCarrito = [];
-                mesaSeleccionadaId = null;
-                document.getElementById('mesa-seleccionada-nombre').innerText = "--";
-                actualizarCarritoUI();
-                cargarHistorial();
-            }
-        } catch (e) { alert("Error al guardar"); }
-    });
+            try {
+                const res = await fetch(`${PYTHON_SERVER_URL}/pedidos`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(pedido)
+                });
+                if(res.ok) {
+                    alert("✅ Pedido guardado!");
+                    itemsCarrito = [];
+                    mesaSeleccionadaId = null;
+                    const mesaNom = document.getElementById('mesa-seleccionada-nombre');
+                    if(mesaNom) mesaNom.innerText = "--";
+                    actualizarCarritoUI();
+                    cargarHistorial();
+                }
+            } catch (e) { alert("Error al guardar"); }
+        });
+    }
 
     async function cargarHistorial() {
         try {
             const res = await fetch(`${PYTHON_SERVER_URL}/pedidos`);
             const pedidos = await res.json();
             const tabla = document.getElementById('lista-pedidos-historial');
+            if(!tabla) return;
             tabla.innerHTML = pedidos.map(p => `
                 <tr>
                     <td>${p.id}</td>
@@ -185,16 +199,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     </td>
                 </tr>
             `).join('');
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Error historial:", e); }
     }
 
     window.eliminarPedido = async (id) => {
         if(!confirm("¿Seguro de eliminar este pedido?")) return;
-        await fetch(`${PYTHON_SERVER_URL}pedidos/${id}`, { method: 'DELETE' });
-        cargarHistorial();
+        try {
+            await fetch(`${PYTHON_SERVER_URL}/pedidos/${id}`, { method: 'DELETE' });
+            cargarHistorial();
+        } catch (e) { console.error("Error al eliminar:", e); }
     };
 
-    // --- 4. INVENTARIO (PARA TU PESTAÑA DE INVENTARIO) ---
     function renderizarInventario() {
         const tabla = document.getElementById('lista-articulos-inventario');
         if(!tabla) return;
