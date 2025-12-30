@@ -9,7 +9,7 @@ import os  # IMPORTANTE: Necesario para Render
 
 # CONFIGURACIÓN DE FLASK
 # static_folder='.' indica que busque el index.html en la carpeta principal
-app = Flask(__name__, static_folder='.', static_url_path='/')
+app = Flask(__name__, static_folder='.', static_url_path='')
 # Habilita CORS para todas las rutas /api/*
 CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "PUT", "DELETE"]}}) 
 
