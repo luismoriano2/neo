@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIGURACIÓN DE URL ---
     // Esto permite que funcione tanto en tu PC como en Render automáticamente
    // En app.js cambia la constante a:
-    const PYTHON_SERVER_URL = window.location.origin + '/api'; // SIN barra al final
+    const PYTHON_SERVER_URL = window.location.origin + '/api/'; // SIN barra al final
     
     // Variables de estado
     let itemsCarrito = []; 
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function cargarMesas() {
         try {
-            const res = await fetch(`${PYTHON_SERVER_URL}/proveedores`);
+            const res = await fetch(`${PYTHON_SERVER_URL}proveedores`);
             const mesas = await res.json();
             const contenedor = document.getElementById('lista-mesas-botones');
             const selectFiltro = document.getElementById('filtroMesa');
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function cargarCategorias() {
         try {
-            const res = await fetch(`${PYTHON_SERVER_URL}/categorias`);
+            const res = await fetch(`${PYTHON_SERVER_URL}categorias`);
             const cats = await res.json();
             const contenedor = document.getElementById('lista-categorias-botones');
             const selectArticulo = document.getElementById('articuloCategoria');
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.cargarArticulos = async () => {
         try {
-            const res = await fetch(`${PYTHON_SERVER_URL}/articulos`);
+            const res = await fetch(`${PYTHON_SERVER_URL}articulos`);
             articulosDisponibles = await res.json();
             renderizarArticulos(articulosDisponibles);
             renderizarInventario();
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         try {
-            const res = await fetch(`${PYTHON_SERVER_URL}/pedidos`, {
+            const res = await fetch(`${PYTHON_SERVER_URL}pedidos`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(pedido)
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function cargarHistorial() {
         try {
-            const res = await fetch(`${PYTHON_SERVER_URL}pedidos`);
+            const res = await fetch(`${PYTHON_SERVER_URL}/pedidos`);
             const pedidos = await res.json();
             const tabla = document.getElementById('lista-pedidos-historial');
             tabla.innerHTML = pedidos.map(p => `
