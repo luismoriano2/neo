@@ -234,4 +234,28 @@ if __name__ == '__main__':
     # Render usa la variable de entorno PORT, si no existe usa el 5000 (local)
     port = int(os.environ.get('PORT', 5000))
     # host='0.0.0.0' es obligatorio para que el servidor sea accesible externamente
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port)@app.route('/api/articulos/<int:id>', methods=['PUT'])
+def actualizar_articulo(id):
+    conn = get_db_connection()
+    data = request.get_json()
+    try:
+        conn.execute('UPDATE articulos SET nombre = ?, precio = ?, stock = ?, categoria_id = ? WHERE id = ?',
+                     (data['nombre'], data['precio'], data['stock'], data['categoria_id'], id))
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/articulos/<int:id>', methods=['DELETE'])
+def eliminar_articulo(id):
+    conn = get_db_connection()
+    try:
+        conn.execute('DELETE FROM articulos WHERE id = ?', (id,))
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        conn.close()
