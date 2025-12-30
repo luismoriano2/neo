@@ -13,6 +13,7 @@ app = Flask(__name__, static_folder='.', static_url_path='/')
 # Habilita CORS para todas las rutas /api/*
 CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "PUT", "DELETE"]}}) 
 
+# CONFIGURACIÓN DE FLASK ---DATABASE = 'inventario.db'
 basedir = os.path.abspath(os.path.dirname(__file__))
 DATABASE = os.path.join(basedir, 'inventario.db')
 # --------------------------------------------------------------------------------
