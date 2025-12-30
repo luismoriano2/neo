@@ -2,7 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CONFIGURACIÓN DE URL ---
     // Esto permite que funcione tanto en tu PC como en Render automáticamente
-    const PYTHON_SERVER_URL = window.location.origin + '/api';
+   // En app.js cambia la constante a:
+    const PYTHON_SERVER_URL = window.location.origin + '/api'; // SIN barra al final
     
     // Variables de estado
     let itemsCarrito = []; 
